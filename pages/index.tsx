@@ -1,123 +1,215 @@
-import Head from 'next/head'
-import Image from 'next/image'
-import { Inter } from '@next/font/google'
-import styles from '../styles/Home.module.css'
+import Head from "next/head";
+import styles from "../styles/Home.module.css";
+import Image from "next/image";
+import _ from "lodash";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import Confetti from "react-confetti";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRefresh } from "@fortawesome/free-solid-svg-icons";
 
-const inter = Inter({ subsets: ['latin'] })
+type Card = {
+  id: number;
+  label: string;
+  url: string;
+  isHidden: boolean;
+};
 
-export default function Home() {
+type Props = {
+  shuffledData: Card[];
+};
+
+let intervalId: any;
+
+export default function Home({ shuffledData }: Props) {
+  const [cards, setCards] = useState<Card[]>(
+    shuffledData.map((card) => ({ ...card, isHidden: true }))
+  );
+  const [selectedCards, setSelectedCards] = useState<Card[]>([]);
+  const [isComparing, setIsComparing] = useState<boolean>(false);
+  const [isGameOver, setIsGameOver] = useState<boolean>(false);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [isGameStarted, setIsGameStarted] = useState<boolean>(false);
+
+  const startGame = () => {
+    setIsGameStarted(true);
+    setStartTime(Date.now());
+    intervalId = setInterval(() => {
+      setElapsedTime((prevElapsedTime) => prevElapsedTime + 1);
+    }, 1000);
+  };
+
+  const stopTimer = useCallback(() => {
+    clearInterval(intervalId);
+  }, []);
+
+  // Victoire du jeu
+  useEffect(() => {
+    if (
+      cards &&
+      cards.every((card) => !card.isHidden) &&
+      startTime &&
+      !isGameOver
+    ) {
+      setIsGameOver(true);
+      stopTimer();
+    }
+  }, [cards, startTime, isGameOver, stopTimer]);
+
+  const flipCardsBack = useCallback(
+    (id: number) => {
+      // Met à jour l'état des cartes pour que les cartes sélectionnées soient à nouveau cachées
+      setCards((prevCards) =>
+        prevCards.map((c) =>
+          // Si l'id de la carte correspond à l'une des cartes sélectionnées, mettre son état à caché
+          c.id === selectedCards[0].id || c.id === id
+            ? { ...c, isHidden: true }
+            : c
+        )
+      );
+      // Réinitialise les cartes sélectionnées
+      setSelectedCards([]);
+      // Réinitialise l'état de comparaison
+      setIsComparing(false);
+    },
+    [selectedCards]
+  );
+
+  const handleCardClick = useCallback(
+    (id: number) => {
+      // Trouve la carte correspondant à l'id cliqué
+      const card = cards.find((c) => c.id === id);
+      // Si la carte n'existe pas ou si une comparaison est en cours ou si la carte est déjà retournée, quitte la fonction
+      if (!card || isComparing || !card.isHidden) {
+        return;
+      }
+      // Met à jour les cartes pour afficher la carte cliquée
+      setCards((prevCards) =>
+        prevCards.map((c) => (c.id === id ? { ...c, isHidden: false } : c))
+      );
+      // Ajoute la carte cliquée à la liste des cartes sélectionnées
+      setSelectedCards((prevSelectedCards) =>
+        prevSelectedCards.concat({ ...card, isHidden: false })
+      );
+      // Si une carte a déjà été sélectionnée
+      if (selectedCards.length === 1) {
+        setIsComparing(true);
+        // Si les cartes sélectionnées n'ont pas le même label
+        if (selectedCards[0].label !== card.label) {
+          // Retourne les cartes après 1 seconde
+          setTimeout(() => {
+            flipCardsBack(id);
+          }, 1000);
+        } else {
+          // Les deux cartes sélectionnées sont des paires
+          setSelectedCards([]); // Réinitialisation de la liste des cartes sélectionnées
+          setIsComparing(false); // Réinitialisation de l'état de comparaison
+        }
+      }
+    },
+    [cards, flipCardsBack, isComparing, selectedCards]
+  );
+
+  const resetGame = () => {
+    // Retourner toute les cartes
+    setCards((prevCards) =>
+      prevCards.map((card) => {
+        return { ...card, isHidden: !card.isHidden };
+      })
+    );
+    setTimeout(() => {
+      // Mélanger toute les cartes
+      setCards(
+        _.shuffle(shuffledData.map((card) => ({ ...card, isHidden: true })))
+      );
+      setSelectedCards([]);
+      setIsComparing(false);
+      setIsGameOver(false);
+      setStartTime(null);
+      setElapsedTime(0);
+    }, 600);
+  };
+
+  const cardComponent = useMemo(
+    () =>
+      cards.map(({ id, label, url, isHidden }) => {
+        return (
+          <div
+            key={id}
+            onClick={() => isGameStarted && !isComparing && handleCardClick(id)}
+            className={`${styles.card} ${isHidden ? styles.flipped : ""}`}
+          >
+            <div className={styles.card_front}>
+              <Image
+                src={"https://cdn-icons-png.flaticon.com/512/6662/6662900.png"}
+                alt={"card"}
+                width="0"
+                height="0"
+                sizes="100vw"
+                className={styles.card_img}
+              />
+            </div>
+            <div className={styles.card_back}>
+              <Image
+                src={url}
+                alt={label}
+                width="0"
+                height="0"
+                sizes="100vw"
+                className={styles.card_img}
+              />
+            </div>
+          </div>
+        );
+      }),
+    [cards, handleCardClick, isComparing, isGameStarted]
+  );
+
   return (
     <>
       <Head>
-        <title>Create Next App</title>
-        <meta name="description" content="Generated by create next app" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <title>Memory Game App</title>
+        <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/7283/7283055.png" />
       </Head>
-      <main className={styles.main}>
-        <div className={styles.description}>
-          <p>
-            Get started by editing&nbsp;
-            <code className={styles.code}>pages/index.tsx</code>
-          </p>
-          <div>
-            <a
-              href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              By{' '}
-              <Image
-                src="/vercel.svg"
-                alt="Vercel Logo"
-                className={styles.vercelLogo}
-                width={100}
-                height={24}
-                priority
-              />
-            </a>
-          </div>
-        </div>
-
-        <div className={styles.center}>
-          <Image
-            className={styles.logo}
-            src="/next.svg"
-            alt="Next.js Logo"
-            width={180}
-            height={37}
-            priority
+      <nav className={styles.nav}>
+        <button
+          className={styles.btn_reset}
+          onClick={resetGame}
+          disabled={!isGameOver}
+        >
+          {"Reset"}
+          <FontAwesomeIcon
+            className={styles.icon}
+            icon={faRefresh}
+            aria-hidden="true"
           />
-          <div className={styles.thirteen}>
-            <Image
-              src="/thirteen.svg"
-              alt="13"
-              width={40}
-              height={31}
-              priority
-            />
-          </div>
-        </div>
-
-        <div className={styles.grid}>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Docs <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Find in-depth information about Next.js features and&nbsp;API.
-            </p>
-          </a>
-
-          <a
-            href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Learn <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Learn about Next.js in an interactive course with&nbsp;quizzes!
-            </p>
-          </a>
-
-          <a
-            href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Templates <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Discover and deploy boilerplate example Next.js&nbsp;projects.
-            </p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <h2 className={inter.className}>
-              Deploy <span>-&gt;</span>
-            </h2>
-            <p className={inter.className}>
-              Instantly deploy your Next.js site to a shareable URL
-              with&nbsp;Vercel.
-            </p>
-          </a>
-        </div>
+        </button>
+        <button
+          className={styles.btn_reset}
+          onClick={startGame}
+          disabled={!!startTime}
+        >
+          Start Game
+        </button>
+        <div className={styles.time}>Time : {elapsedTime} sec</div>
+      </nav>
+      <main className={styles.main}>
+        {isGameOver && <Confetti />}
+        <div className={styles.card_container}>{cardComponent}</div>
       </main>
     </>
-  )
+  );
 }
+
+export const getStaticProps = async () => {
+  const url = "http://localhost:3000/api/images";
+  const res = await fetch(url);
+  const data: Card[] = await res.json();
+  const shuffledData = _.shuffle(data);
+
+  return {
+    props: {
+      shuffledData,
+    },
+  };
+};
