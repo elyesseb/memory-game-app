@@ -125,6 +125,7 @@ export default function Home({ shuffledData }: Props) {
       setSelectedCards([]);
       setIsComparing(false);
       setIsGameOver(false);
+      setIsGameStarted(false);
       setStartTime(null);
       setElapsedTime(0);
     }, 600);
@@ -136,7 +137,9 @@ export default function Home({ shuffledData }: Props) {
         return (
           <div
             key={id}
-            onClick={() => isGameStarted && !isComparing && handleCardClick(id)}
+            onClick={() =>
+              !isGameStarted || (!isComparing && handleCardClick(id))
+            }
             className={`${styles.card} ${isHidden ? styles.flipped : ""}`}
           >
             <div className={styles.card_front}>
@@ -169,7 +172,10 @@ export default function Home({ shuffledData }: Props) {
     <>
       <Head>
         <title>Memory Game App</title>
-        <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/7283/7283055.png" />
+        <link
+          rel="icon"
+          href="https://cdn-icons-png.flaticon.com/512/7283/7283055.png"
+        />
       </Head>
       <nav className={styles.nav}>
         <button
